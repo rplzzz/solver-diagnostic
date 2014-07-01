@@ -17,3 +17,6 @@
 
 # figures directory
 fig/
+
+# ignore the data directory (the files are large and will change often)
+data/
