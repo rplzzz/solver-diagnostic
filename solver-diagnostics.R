@@ -33,14 +33,6 @@ component.to.int <- function(compvec) {
     as.integer(sapply(compvec, function(t){substr(t,2,6)}))
 }
 
-### ready a table to plot as a heatmap
-ready.data.heatmap <- function(data) {
-    nmkt  <- ncol(data) - 2
-    niter <- max(data$iter)
-    dm    <- melt(data, id=c("mode","iter"), var="component.name")
-    dm$component <- component.to.int(dm$component.name)
-}    
-
 fxcolormap <- function(n=51, controlpts=c(-10,-3,0,3,10)) {
     xlo <- controlpts[1]
     x1  <- controlpts[2]
@@ -70,15 +62,38 @@ fxtransform <- function(x) {
     signx*xx                            # return value
 }
 
+### Transform deltax and deltafx values for better visualization
+deltatransform <- function(x) {
+    magx <- abs(x)
+    ifelse(magx>10, 10, magx) 
+}
 
 ### create a heat map of a single variable for a single period (i.e.,
 ### the bottom-level table in the list created by read.trace.log).
 ### This version is tuned for looking at fx.
 heatmap.fx <- function(data) {
-    dm       <- ready.data.heatmap(data)
+    nmkt  <- ncol(data) - 2
+    niter <- max(data$iter)
+    dm    <- melt(data, id=c("mode","iter"), var="component.name")
+    dm$component <- component.to.int(dm$component.name)
     dm$value <- fxtransform(dm$value)
     ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
         scale_fill_gradientn(colours=fxcolormap(), na.value="black", breaks=c(-7, -3, 0, 3, 7)) +
+            scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
+}
+
+### heat map for deltax and deltafx
+heatmap.delta <- function(data, title="") {
+    nmkt  <- ncol(data) - 2
+    niter <- max(data$iter)
+    dm    <- melt(data, id=c("mode","iter"), var="component.name")
+    dm$component <- component.to.int(dm$component.name)
+    ## Plot absolute values, cut off the distribution at 10
+    dm$value <- deltatransform(dm$value)
+
+    ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
+        scale_fill_gradient(low="white", high="blue", na.value="black") +
+            ggtitle(title) +
             scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
 }
 
