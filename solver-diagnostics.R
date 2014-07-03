@@ -71,14 +71,15 @@ deltatransform <- function(x) {
 ### create a heat map of a single variable for a single period (i.e.,
 ### the bottom-level table in the list created by read.trace.log).
 ### This version is tuned for looking at fx.
-heatmap.fx <- function(data) {
+heatmap.fx <- function(data, title="", breaks=c(-7, -3, 0, 3, 7)) {
     nmkt  <- ncol(data) - 2
     niter <- max(data$iter)
-    dm    <- melt(data, id=c("mode","iter"), var="component.name")
-    dm$component <- component.to.int(dm$component.name)
-    dm$value <- fxtransform(dm$value)
+    dm    <- melt(data, id=c("mode","iter"))
+    dm$component <- component.to.int(dm$variable)
+    dm$value <- fxtransform(as.numeric(dm$value))
     ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
-        scale_fill_gradientn(colours=fxcolormap(), na.value="black", breaks=c(-7, -3, 0, 3, 7)) +
+        scale_fill_gradientn(colours=fxcolormap(), na.value="black", breaks=breaks) +
+            ggtitle(title) +
             scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
 }
 
@@ -86,10 +87,10 @@ heatmap.fx <- function(data) {
 heatmap.delta <- function(data, title="") {
     nmkt  <- ncol(data) - 2
     niter <- max(data$iter)
-    dm    <- melt(data, id=c("mode","iter"), var="component.name")
-    dm$component <- component.to.int(dm$component.name)
+    dm    <- melt(data, id=c("mode","iter"))
+    dm$component <- component.to.int(dm$variable)
     ## Plot absolute values, cut off the distribution at 10
-    dm$value <- deltatransform(dm$value)
+    dm$value <- deltatransform(as.numeric(dm$value))
 
     ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
         scale_fill_gradient(low="white", high="blue", na.value="black") +
@@ -97,3 +98,27 @@ heatmap.delta <- function(data, title="") {
             scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
 }
 
+### calculate a total derivative from deltax and deltafx
+calc.total.deriv <- function(deltafx, deltax) {
+    dfxmat <- as.matrix(cast(melt(deltafx, id=c("iter","mode")), iter~variable))
+    dxmat  <- as.matrix(cast(melt(deltax, id=c("iter","mode")), iter~variable))
+
+    as.data.frame(dfxmat/dxmat)
+}
+
+### heatmap for total derivative
+heatmap.dfdx <- function(data, title="") {
+    nmkt  <- ncol(data) - 2
+    niter <- max(data$iter)
+    dm    <- melt(data, id=c("mode","iter"))
+    dm$component <- component.to.int(dm$variable)
+    val <- as.numeric(dm$value)
+    dm$value <- ifelse(val < -100, -100,
+                       ifelse(val > 100, 100, val))
+    
+    ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
+        scale_fill_gradientn(colours=fxcolormap(101, c(-100, -20, 0, 20, 100)), na.value="black") +
+            ggtitle(title) +
+                scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
+
+}
