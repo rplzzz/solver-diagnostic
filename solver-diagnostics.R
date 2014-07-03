@@ -1,6 +1,7 @@
 require(ggplot2)
 require(reshape)
 require(RColorBrewer)
+require(graphics)
 ### Create a collection of tables with the following structure
 ### list: one element for each GCAM model period.  for each period:
 ###      list:  one element for each variable type, for each variable
@@ -10,7 +11,8 @@ require(RColorBrewer)
 ### changes each time the solver exits and restarts.
 read.trace.log <- function(filename, nmkt=200) {
     ## unfortunately, the number of markets in play fluctuates as
-    ## markets are added and subtracted from the solvable set 200
+    ## markets are added and subtracted from the solvable set. 200
+    ## seems to be about the largest it gets.
     varn <- sapply(seq(1,nmkt), function(i) {paste("x",i, sep="")})
     colnames   <- c("period", "iter", "mode", "name", varn)
     colclasses <- c("factor", "integer", "factor", "factor", rep("numeric", nmkt))
@@ -26,13 +28,47 @@ read.trace.log <- function(filename, nmkt=200) {
 }
 
 
+fxcolormap <- function(n=51, controlpts=c(-10,-3,0,3,10)) {
+    xlo <- controlpts[1]
+    x1  <- controlpts[2]
+    xm  <- controlpts[3]
+    x2  <- controlpts[4]
+    xhi <- controlpts[5]
+    
+    x = seq(0,n-1) * (xhi-xlo)/(n-1) + xlo
+    ## Hue is piecewise constant on three intervals
+    H <- ifelse(x<x1, 0,
+                ifelse(x>x2, 240/360, 120/360))
+    ## Use "option 2 for the saturation"
+    S <- ifelse(x<xm, 1-(x-xlo)/(xm-xlo), (x-xm)/(xhi-xm))
+    ## Constant 1 for value
+
+    hsv(H, S, 1)
+}
+
+### Transform F(x) values for better visualization
+fxtransform <- function(x) {
+    ftol  <- 1.0e-3                     # threshold for considering a market "solved"
+    signx <- sign(x)
+    magx  <- abs(x)
+    xx    <- ifelse(magx < ftol, 0,
+                    ifelse(magx < 1, log10(magx)-log10(ftol),
+                           ifelse(magx < 10, (magx-1)-log10(ftol), 10+log10(ftol))))
+    signx*xx                            # return value
+}
+
 
 ### create a heat map of a single variable for a single period (i.e.,
 ### the bottom-level table in the list created by read.trace.log)
 
-heatmap.var <- function(data, type="div", pal=1) {
-    dm <- melt(data, id=c("mode","iter"), var="element")
+heatmap.var <- function(data) {
+    nmkt  <- ncol(data) - 2
+    niter <- max(data$iter)
+    dm    <- melt(data, id=c("mode","iter"), var="element")
+    dm$element <- as.integer(sapply(dm$element, function(t){substr(t,2,6)}))
+    dm$value   <- fxtransform(dm$value)
     ggplot(data=dm, aes(x=element, y=iter, fill=value)) + geom_raster() +
-        scale_fill_brewer(type=type, palette=pal)
+        scale_fill_gradientn(colours=fxcolormap(), na.value="black", breaks=c(-7, -3, 0, 3, 7)) +
+            scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
 }
 
