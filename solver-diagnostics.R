@@ -41,9 +41,10 @@ fxcolormap <- function(n=51, controlpts=c(-10,-3,0,3,10)) {
     xhi <- controlpts[5]
     
     x = seq(0,n-1) * (xhi-xlo)/(n-1) + xlo
-    ## Hue is piecewise constant on three intervals
-    H <- ifelse(x<x1, 0,
-                ifelse(x>x2, 240/360, 120/360))
+    ## Hue is piecewise constant on four intervals
+    h1 <- ifelse(x<x1, 0, 90/360)
+    h2 <- ifelse(x>x2, 240/360, 180/360)
+    H <- ifelse(x<xm, h1, h2)
     ## Use "option 2 for the saturation"
     S <- ifelse(x<xm, 1-(x-xlo)/(xm-xlo), (x-xm)/(xhi-xm))
     ## Constant 1 for value
