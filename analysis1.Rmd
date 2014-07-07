@@ -1,0 +1,80 @@
+Diagnosing Solver Failures
+========================================================
+
+## Runs included
+We have a couple of test runs here.  They are:
+- **nolog**: Mostly Broyden+linear mode alternating with the preconditioner.  The bisector gets to run only if there are markets that are being completely excluded from the Broyden solver. This version mostly failed to solve.
+- **nlbf**:  Due to an oversight, the *nolog* run ran the bisector in between the preconditioner and the Broyden solver.  This version reverses the order, as intended, which causes periods 4-11 to solve.
+
+## Notes on the raster plots
+The raster plots display vector quantities as a function of iteration count, with iterations on the y-axis and components of the vector on the x-axis.  The number of markets being solved is variable, so unused vector components, if any, are colored black.
+
+In some cases the data values have been scaled so as to provide better contrast on intervals of interest:
+- The $F(x)$ raster plots have their values remapped to a partially logarithmic scale.  Values with magnitudes less than $10^{-3}$ are flushed to zero *(displayed in white)*.  (These markets would be considered solved under the default solution tolerance.)  Values between $10^{-3}$ and 1 are mapped logarithmically in the ranges -3-0 and 0-3, according to their sign *(green tints)*.  Values between 1 and 10 are mapped linearly to the range 3-13 (-13 - -3, for negative values) *(red/blue tints)*, and values with magnitudes greater than 10 are clamped to +/- 13 *(saturated red/blue)*.
+- Plots of changes by iteration ($\Delta x$ and $\Delta F(x)$) are shown as absolute values, with values > 10 clamped to 10.
+- Plots of derivatives (whether partial or total) are clamped to the range [-100, 100].
+
+The newer data inserts a one-pixel gap between calls to the Broyden solver.  Some of the older datasets lack this visual guide.  In either case, we see discontinuities whenever one call ends and the next begins.  These discontinuities are caused partly by the adjustments that other solvers, such as the preconditioner can make to prices; however, adding and removing markets from the solvable set also scrambles (slightly) the columns in the plots, even when the number of markets being solved is unchanged.
+
+```{r setoptions, echo=FALSE, cache=FALSE}
+opts_chunk$set(message=FALSE,dpi=100, cache=TRUE)
+source("solver-diagnostics.R")
+```
+
+```{r readdata, echo=FALSE}
+### Read several datasets of interest.
+nolog.alldata <- read.trace.log("data/ctax-solver-nolog.txt")
+nolog.per4 <- nolog.alldata$`4`
+nolog.per4.fxvals  <- nolog.per4$fx
+nolog.per4.dfxvals <- nolog.per4$deltafx
+nolog.per4.dxvals  <- nolog.per4$deltax
+nolog.per4.diagB   <- nolog.per4$diagB
+nolog.per4.totalderiv <- calc.total.deriv(nolog.per4.dfxvals, nolog.per4.dxvals)
+
+nlbf.alldata         <- read.trace.log("data/solver-data-nolog-broydenfirst.txt")
+nlbf.per4            <- nlbf.alldata$`4`
+nlbf.per4.fxvals     <- nlbf.per4$fx
+nlbf.per4.dfxvals    <- nlbf.per4$deltafx
+nlbf.per4.dxvals     <- nlbf.per4$deltax
+nlbf.per4.diagB      <- nlbf.per4$diagB
+nlbf.per4.totalderiv <- calc.total.deriv(nlbf.per4.dfxvals, nlbf.per4.dxvals)
+
+## Also get period 12 for nlbf
+nlbf.per12           <- nlbf.alldata$`12`
+nlbf.per12.fxvals    <- nlbf.per12$fx
+nlbf.per12.dfxvals   <- nlbf.per12$deltafx
+nlbf.per12.dxvals    <- nlbf.per12$deltax
+nlbf.per12.diagB     <- nlbf.per12$diagB
+nlbf.per12.totalderiv <- calc.total.deriv(nlbf.per12.dfxvals, nlbf.per12.dxvals)
+```
+
+The plots below show period 4 of the nolog case, which failed to solve.  Discussion follows the plots.
+
+```{r nolog.heatmaps4fx, fig.width=10, fig.height=8}
+heatmap.fx(nolog.per4.fxvals, "F(x) values, run= nolog, per= 4")
+```
+
+Several patterns are apparent in this plot:
+
+1. Although many markets appear to get close to solution, very few are actually solved.
+2. Insufficient demand (negative $F(x)$ values / red tints) is much more common than excess demand, at least where large magnitudes are concerned (positive and negative for small magnitude values are not readily distinguishable).  
+3. The reset that occurs when the solver stalls frequently results in the solver moving *further* from solution.  The block of iterations ending around iteration 320 is an especially vivid example.
+4. Several markets seem to be persistently problematic.  Looking at the final block of iterations and cross-referencing with the solver log we can identify some of them:
+  + **20--22**: GlobalRice, GlobalSugarCrop, GlobalWheat
+  + **150--160**: Various regions "electricity-net-ownuseDemand-int" markets
+  + **170--181**: Various regions FodderGrass, plus globalFodderHerb, globalMiscCrop, and globalRoot-Tuber
+
+```{r nolog.heatmaps4, fig.width=10, fig.height=8}
+heatmap.delta(nolog.per4.dxvals, "Abs(delta-x), run= nolog, per= 4")
+heatmap.dfdx(nolog.per4.diagB, "Diagonal partials, run= nolog, per= 4")
+heatmap.dfdx(nolog.per4.totalderiv, "Total derivatives, run= nolog, per= 4")
+```
+
+
+
+```{r nlbf.heatmaps4, fig.width=10, fig.height=8}
+heatmap.fx(nlbf.per4.fxvals, "F(x) values, run= nlbf, per=4")
+heatmap.delta(nlbf.per4.dxvals, "Abs(delta-x), run= nlbf, per= 4")
+heatmap.dfdx(nlbf.per4.diagB, "Diagonal partials, run= nlbf, per= 4")
+heatmap.dfdx(nlbf.per4.totalderiv, "Total derivatives, run= nlbf, per=4")
+```
