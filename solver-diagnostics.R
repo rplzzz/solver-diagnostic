@@ -58,7 +58,7 @@ fxtransform <- function(x) {
     magx  <- abs(x)
     xx    <- ifelse(magx < ftol, 0,
                     ifelse(magx < 1, log10(magx)-log10(ftol),
-                           ifelse(magx < 10, (magx-1)-log10(ftol), 10+log10(ftol))))
+                           ifelse(magx < 10, (magx-1)-log10(ftol), 9-log10(ftol))))
     signx*xx                            # return value
 }
 
@@ -71,7 +71,7 @@ deltatransform <- function(x) {
 ### create a heat map of a single variable for a single period (i.e.,
 ### the bottom-level table in the list created by read.trace.log).
 ### This version is tuned for looking at fx.
-heatmap.fx <- function(data, title="", breaks=c(-7, -3, 0, 3, 7)) {
+heatmap.fx <- function(data, title="", breaks=c(-12, -7, -3, 0, 3, 7, 12)) {
     nmkt  <- ncol(data) - 2
     niter <- max(data$iter)
     dm    <- melt(data, id=c("mode","iter"))
