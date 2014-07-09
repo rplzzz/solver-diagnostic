@@ -70,7 +70,7 @@ heatmap.dfdx(nolog.per4.diagB, "Diagonal partials, run= nolog, per= 4")
 heatmap.dfdx(nolog.per4.totalderiv, "Total derivatives, run= nolog, per= 4")
 ```
 
-
+The $\Delta x$ plot shows that many of the vector components are limited to tiny steps at each iteration.  The changes in the price vector are dominated by a few markets.  In a couple of iteration blocks, such as the ones surrounding iterations 340 and 420, it appears that the solver algorithm made very little progress at all before bailing out.  The components in the block around 150--160 are demand markets.  As such their "prices" are actually demand values, with a different characteristic scale, so it is perhaps not surprising that their step values are larger.  However, for the rest of the components it looks as if the algorithm is stuck for much of its run and that most of the progress, such as it is, takes place between iteration blocks.  
 
 ```{r nlbf.heatmaps4, fig.width=10, fig.height=8}
 heatmap.fx(nlbf.per4.fxvals, "F(x) values, run= nlbf, per=4")
