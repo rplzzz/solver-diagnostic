@@ -63,11 +63,45 @@ fxtransform <- function(x) {
     signx*xx                            # return value
 }
 
-### Transform deltax and deltafx values for better visualization
-deltatransform <- function(x) {
-    magx <- abs(x)
-    ifelse(magx>10, 10, magx) 
+### Return a transform function that takes the magnitude and clips it to a maximum value
+clipped.mag.transform <- function(maxmag=10) {
+    function(x) {
+        magx <- abs(x)
+        ifelse(magx>maxmag, maxmag, magx)
+    }
 }
+
+### Return a transform function that gives sign(x)*log(x/xmin).
+### x-values less than xmin are flushed to zero, and x-values greater
+### than xmax are clipped to xmax
+signed.log.transform <- function(xmin=1e-4, xmax=100) {
+    function(x) {
+        signx <- sign(x)
+        absx  <- max( min(abs(x), xmax), xmin)
+        signx * log10(absx/xmin)
+    }
+}
+
+### Transform deltax and deltafx values for better visualization
+deltatransform <- function(x, maxmag=10) {
+    magx <- abs(x)
+    ifelse(magx>maxmag, maxmag, magx) 
+}
+
+heatmap.gcam <- function(data, xform=identity, colors=c("white","blue"), title="", breaks=waiver()) {
+    nmkt <- ncol(data) - 2
+    niter <- max(data$iter)
+    dm    <- melt(data, id=c("mode","iter"))
+    dm$component <- component.to.int(dm$variable)
+    dm$value <- xform(as.numeric(dm$value))
+
+    ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
+        scale_fill_gradientn(colours=colors, na.value="black", breaks=breaks) +
+            ggtitle(title) +
+                scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
+}
+        
+
 
 ### create a heat map of a single variable for a single period (i.e.,
 ### the bottom-level table in the list created by read.trace.log).
@@ -85,19 +119,20 @@ heatmap.fx <- function(data, title="", breaks=c(-12, -7, -3, 0, 3, 7, 12)) {
 }
 
 ### heat map for deltax and deltafx
-heatmap.delta <- function(data, title="") {
+heatmap.delta <- function(data, title="", maxmag=5) {
     nmkt  <- ncol(data) - 2
     niter <- max(data$iter)
     dm    <- melt(data, id=c("mode","iter"))
     dm$component <- component.to.int(dm$variable)
     ## Plot absolute values, cut off the distribution at 10
-    dm$value <- deltatransform(as.numeric(dm$value))
+    dm$value <- deltatransform(as.numeric(dm$value), maxmag=maxmag)
 
     ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
         scale_fill_gradient(low="white", high="blue", na.value="black") +
             ggtitle(title) +
             scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
 }
+
 
 ### calculate a total derivative from deltax and deltafx
 calc.total.deriv <- function(deltafx, deltax) {
