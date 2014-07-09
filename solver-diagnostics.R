@@ -13,7 +13,7 @@ read.trace.log <- function(filename, nmkt=200) {
     ## unfortunately, the number of markets in play fluctuates as
     ## markets are added and subtracted from the solvable set. 200
     ## seems to be about the largest it gets.
-    varn <- sapply(seq(1,nmkt), function(i) {paste("x",i, sep="")})
+    varn <- seq(1,nmkt)
     colnames   <- c("period", "iter", "mode", "name", varn)
     colclasses <- c("factor", "integer", "factor", "factor", rep("numeric", nmkt))
     rawdata <- read.table(filename, sep=',', strip.white=TRUE, skip=2, fill=TRUE,
@@ -25,12 +25,6 @@ read.trace.log <- function(filename, nmkt=200) {
                dfs <- split(df, df$name)
                lapply(dfs, function(d) {d$name <- NULL;d})
            }) 
-}
-
-### change a vector of component names (like "V26") into a vector of
-### component numbers
-component.to.int <- function(compvec) {
-    as.integer(sapply(compvec, function(t){substr(t,2,6)}))
 }
 
 fxcolormap <- function(n=51, controlpts=c(-10,-3,0,3,10)) {
@@ -99,7 +93,7 @@ heatmap.gcam <- function(data, xform=identity, colors=c("white","blue"), title="
     nmkt <- ncol(data) - 2
     niter <- max(data$iter)
     dm    <- melt(data, id=c("mode","iter"))
-    dm$component <- component.to.int(dm$variable)
+    dm$component <- as.integer(dm$variable)
     dm$value <- xform(as.numeric(dm$value))
 
     ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
