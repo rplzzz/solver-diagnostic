@@ -71,13 +71,20 @@ clipped.mag.transform <- function(maxmag=10) {
     }
 }
 
+### Return a transform that clamps the values to two bounds
+clamp.transform <- function(xmin=-100, xmax=100) {
+    function(x) {
+        pmax(xmin, pmin(x, xmax))
+    }
+}
+
 ### Return a transform function that gives sign(x)*log(x/xmin).
 ### x-values less than xmin are flushed to zero, and x-values greater
 ### than xmax are clipped to xmax
 signed.log.transform <- function(xmin=1e-4, xmax=100) {
     function(x) {
         signx <- sign(x)
-        absx  <- max( min(abs(x), xmax), xmin)
+        absx  <- pmax( pmin(abs(x), xmax), xmin)
         signx * log10(absx/xmin)
     }
 }
@@ -85,7 +92,7 @@ signed.log.transform <- function(xmin=1e-4, xmax=100) {
 ### Transform deltax and deltafx values for better visualization
 deltatransform <- function(x, maxmag=10) {
     magx <- abs(x)
-    ifelse(magx>maxmag, maxmag, magx) 
+    pmin(magx, maxmag)
 }
 
 heatmap.gcam <- function(data, xform=identity, colors=c("white","blue"), title="", breaks=waiver()) {
@@ -107,32 +114,19 @@ heatmap.gcam <- function(data, xform=identity, colors=c("white","blue"), title="
 ### the bottom-level table in the list created by read.trace.log).
 ### This version is tuned for looking at fx.
 heatmap.fx <- function(data, title="", breaks=c(-12, -7, -3, 0, 3, 7, 12)) {
-    nmkt  <- ncol(data) - 2
-    niter <- max(data$iter)
-    dm    <- melt(data, id=c("mode","iter"))
-    dm$component <- component.to.int(dm$variable)
-    dm$value <- fxtransform(as.numeric(dm$value))
-    ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
-        scale_fill_gradientn(colours=fxcolormap(), na.value="black", breaks=breaks) +
-            ggtitle(title) +
-            scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
+    heatmap.gcam(data, xform=fxtransform, colors=fxcolormap(), title=title, breaks=breaks)
 }
 
 ### heat map for deltax and deltafx
 heatmap.delta <- function(data, title="", maxmag=5) {
-    nmkt  <- ncol(data) - 2
-    niter <- max(data$iter)
-    dm    <- melt(data, id=c("mode","iter"))
-    dm$component <- component.to.int(dm$variable)
-    ## Plot absolute values, cut off the distribution at 10
-    dm$value <- deltatransform(as.numeric(dm$value), maxmag=maxmag)
-
-    ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
-        scale_fill_gradient(low="white", high="blue", na.value="black") +
-            ggtitle(title) +
-            scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
+    heatmap.gcam(data, xform=clipped.mag.transform(maxmag), title=title)
 }
 
+### heatmap for total derivative
+heatmap.dfdx <- function(data, title="") {
+    heatmap.gcam(data, xform=clamp.transform(-100,100),
+                 colors=fxcolormap(101,c(-100, -20, 0, 20, 100)), title=title)
+}
 
 ### calculate a total derivative from deltax and deltafx
 calc.total.deriv <- function(deltafx, deltax) {
@@ -140,21 +134,4 @@ calc.total.deriv <- function(deltafx, deltax) {
     dxmat  <- as.matrix(cast(melt(deltax, id=c("iter","mode")), iter~variable))
 
     as.data.frame(dfxmat/dxmat)
-}
-
-### heatmap for total derivative
-heatmap.dfdx <- function(data, title="") {
-    nmkt  <- ncol(data) - 2
-    niter <- max(data$iter)
-    dm    <- melt(data, id=c("mode","iter"))
-    dm$component <- component.to.int(dm$variable)
-    val <- as.numeric(dm$value)
-    dm$value <- ifelse(val < -100, -100,
-                       ifelse(val > 100, 100, val))
-    
-    ggplot(data=dm, aes(x=component, y=iter, fill=value)) + geom_raster() +
-        scale_fill_gradientn(colours=fxcolormap(101, c(-100, -20, 0, 20, 100)), na.value="black") +
-            ggtitle(title) +
-                scale_x_continuous(breaks=seq(10,nmkt,10)) + scale_y_continuous(breaks=seq(0,niter,20))
-
 }
